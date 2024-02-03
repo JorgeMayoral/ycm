@@ -1,108 +1,110 @@
-use std::{
-    collections::HashMap,
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
-use eyre::{ContextCompat, Ok, Result};
+use clap::{Args, Parser, Subcommand};
+use configs_db::ConfigsDB;
+use eyre::{ContextCompat, Result};
 
-type ConfigName = String;
-type ConfigPath = PathBuf;
-type TargetConfigs = HashMap<ConfigName, Vec<ConfigPath>>;
+mod configs_db;
 
-#[derive(Debug, serde::Deserialize)]
-struct Config {
-    name: ConfigName,
-    source_dir: Option<ConfigPath>,
-    filename: Option<ConfigPath>,
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[clap(subcommand)]
+    command: Commands,
 }
 
-impl Config {
-    fn target_config(&self) -> Result<(ConfigName, Vec<ConfigPath>)> {
-        let name = self.name.clone();
-        let mut config_paths = Vec::new();
-        if let Some(filename) = &self.filename {
-            config_paths.push(filename.clone());
-        };
-        if let Some(source_dir) = &self.source_dir {
-            for entry in std::fs::read_dir(source_dir)? {
-                let entry = entry?;
-                let path = entry.path();
-                if path.is_file() {
-                    config_paths.push(path);
-                }
-            }
-        };
-
-        Ok((name, config_paths))
-    }
+#[derive(Subcommand, Debug)]
+enum Commands {
+    Add {
+        #[arg(short, long)]
+        name: String,
+        #[command(flatten)]
+        input: Input,
+    },
 }
 
-#[derive(Debug, serde::Deserialize)]
-struct ConfigFile {
-    version: u32,
-    configs: Vec<Config>,
-}
-
-impl ConfigFile {
-    fn from_path(path: PathBuf) -> Result<Self> {
-        let rdr = std::io::BufReader::new(std::fs::File::open(path)?);
-        let config_file: Self = serde_json::from_reader(rdr)?;
-        Ok(config_file)
-    }
-
-    fn target_configs(&self) -> Result<TargetConfigs> {
-        let mut target_configs = HashMap::new();
-        for config in &self.configs {
-            let (name, config_paths) = config.target_config()?;
-            target_configs.insert(name, config_paths);
-        }
-        Ok(target_configs)
-    }
-}
-
-fn main() -> Result<()> {
-    let config_file = ConfigFile::from_path(fs::canonicalize("./examples/config.json")?)?;
-    let target_configs = config_file.target_configs()?;
-    generate_links(target_configs)?;
-
-    Ok(())
+#[derive(Args, Debug)]
+#[group(required = true, multiple = false)]
+struct Input {
+    #[arg(short, long)]
+    dir: Option<PathBuf>,
+    #[arg(short, long)]
+    file: Option<PathBuf>,
 }
 
 const CONFIG_MANAGER_FOLDER: &str = "config-manager";
 
-fn create_config_dir(name: &str) -> Result<()> {
-    let base_dirs = directories::BaseDirs::new().context("Could not get config directory")?;
-    let config_dir = base_dirs.config_dir();
-    let config_manager_dir = config_dir.join(CONFIG_MANAGER_FOLDER).join(name);
-    std::fs::create_dir_all(config_manager_dir)?;
-    Ok(())
-}
+type ConfigDirPath = PathBuf;
 
-fn copy_configs(saved_config_path: &Path, config_paths: &Vec<ConfigPath>) -> Result<()> {
-    for config_path in config_paths {
-        std::fs::copy(
-            config_path,
-            saved_config_path.join(config_path.file_name().unwrap()),
-        )?;
-    }
-    Ok(())
-}
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+    let command = cli.command;
 
-fn generate_links(target_configs: TargetConfigs) -> Result<()> {
-    for (name, config_paths) in target_configs {
-        let base_dirs = directories::BaseDirs::new().context("Could not get config directory")?;
-        let config_dir = base_dirs.config_dir();
-        let saved_configs_dir = config_dir.join(CONFIG_MANAGER_FOLDER).join(name.clone());
-        create_config_dir(&name)?;
-        copy_configs(&saved_configs_dir, config_paths.as_ref())?;
-        for config_path in config_paths {
-            let saved_config_path = saved_configs_dir.join(config_path.file_name().unwrap());
-            let config_path = config_path.canonicalize()?;
-            std::fs::remove_file(&config_path)?;
-            std::fs::hard_link(saved_config_path, config_path)?;
+    let config_manager_dir = init_configs_dir()?;
+    let mut db = init_configs_db(&config_manager_dir)?;
+
+    match command {
+        Commands::Add { name, input } => {
+            let Input { dir, file } = input;
+            if let Some(dir) = dir {
+                let entries = std::fs::read_dir(dir)?;
+                for entry in entries {
+                    let entry = entry?;
+                    let file = entry.path();
+                    write_config(&mut db, &name, file, &config_manager_dir)?;
+                }
+            }
+            if let Some(file) = file {
+                write_config(&mut db, &name, file, &config_manager_dir)?;
+            }
+            let configs = db.get_configs(&name).unwrap();
+            for config in configs {
+                config.create_link()?;
+            }
         }
     }
 
+    Ok(())
+}
+
+fn init_configs_dir() -> Result<ConfigDirPath> {
+    let base_dirs = directories::BaseDirs::new().context("Could not get config directory")?;
+    let config_dir = base_dirs.config_dir();
+    let config_manager_dir = config_dir.join(CONFIG_MANAGER_FOLDER);
+    if config_manager_dir.exists() {
+        return Ok(config_manager_dir);
+    }
+    std::fs::create_dir_all(&config_manager_dir)?;
+    Ok(config_manager_dir)
+}
+
+fn init_configs_db(path: &Path) -> Result<ConfigsDB> {
+    let db_filename = configs_db::CONFIGS_DB_NAME;
+    let db_path = path.join(db_filename);
+    if db_path.exists() {
+        let db = ConfigsDB::try_from_path(&db_path)?;
+        return Ok(db);
+    }
+    let db = configs_db::ConfigsDB::default();
+    let db_json = serde_json::to_string_pretty(&db)?;
+    std::fs::write(db_path, db_json)?;
+    Ok(db)
+}
+
+fn write_config(
+    db: &mut ConfigsDB,
+    config_name: &str,
+    file: PathBuf,
+    config_manager_dir: &Path,
+) -> Result<()> {
+    let filename = file.file_name().context("Could not get file name")?;
+    let config_dir = config_manager_dir.join(config_name).canonicalize()?;
+    if !config_dir.exists() {
+        std::fs::create_dir(&config_dir)?;
+    }
+    let source_path = config_dir.join(filename);
+    let file = file.canonicalize()?;
+    db.add_config(config_name.to_string(), source_path, file);
+    db.write(config_manager_dir)?;
     Ok(())
 }
