@@ -6,6 +6,8 @@ use configs_db::ConfigsDB;
 use eyre::{ContextCompat, Result};
 
 mod configs_db;
+mod git;
+mod utils;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -24,6 +26,7 @@ enum Commands {
         #[command(flatten)]
         input: Input,
     },
+    Push,
 }
 
 #[derive(Args, Debug)]
@@ -71,6 +74,13 @@ fn main() -> Result<()> {
             for config in configs {
                 config.create_link()?;
             }
+        }
+        Commands::Push => {
+            log::info!("Pushing changes to remote");
+            let repo = git::get_repository(&config_manager_dir)?;
+            git::create_remote(&repo)?;
+            git::commit_all(&repo)?;
+            git::push_to_remote(&repo)?;
         }
     }
 
