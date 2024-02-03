@@ -98,7 +98,7 @@ fn write_config(
     config_manager_dir: &Path,
 ) -> Result<()> {
     let filename = file.file_name().context("Could not get file name")?;
-    let config_dir = config_manager_dir.join(config_name).canonicalize()?;
+    let config_dir = config_manager_dir.canonicalize()?.join(config_name);
     if !config_dir.exists() {
         std::fs::create_dir(&config_dir)?;
     }
