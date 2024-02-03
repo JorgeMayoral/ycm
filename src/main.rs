@@ -27,6 +27,7 @@ enum Commands {
         input: Input,
     },
     Push,
+    Pull,
 }
 
 #[derive(Args, Debug)]
@@ -76,11 +77,17 @@ fn main() -> Result<()> {
             }
         }
         Commands::Push => {
-            log::info!("Pushing changes to remote");
-            let repo = git::get_repository(&config_manager_dir)?;
-            git::create_remote(&repo)?;
-            git::commit_all(&repo)?;
-            git::push_to_remote(&repo)?;
+            if !git::is_git_repo(&config_manager_dir)? {
+                git::init_repository(&config_manager_dir)?;
+            }
+            if !git::has_remote(&config_manager_dir)? {
+                git::create_remote(&config_manager_dir)?;
+            }
+            git::commit_all(&config_manager_dir)?;
+            git::push_to_remote(&config_manager_dir)?;
+        }
+        Commands::Pull => {
+            git::pull_from_remote(&config_manager_dir)?;
         }
     }
 
