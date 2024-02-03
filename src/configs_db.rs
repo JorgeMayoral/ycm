@@ -22,6 +22,11 @@ pub struct Config {
 
 impl Config {
     pub fn create_link(&self) -> Result<()> {
+        log::info!(
+            "Creating link from {} to {}",
+            self.source.display(),
+            self.target.display()
+        );
         std::fs::copy(&self.target, &self.source)?;
         std::fs::remove_file(&self.target)?;
         std::fs::hard_link(&self.source, &self.target)?;
