@@ -12,7 +12,7 @@ type ConfigPath = PathBuf;
 const CONFIGS_DB_VERSION: u32 = 0;
 pub const CONFIGS_DB_NAME: &str = "configs_db.json";
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Config {
     /// Where the configuration file is stored
     source: ConfigPath,
@@ -65,6 +65,10 @@ impl ConfigsDB {
 
     pub fn get_configs(&self, name: &str) -> Option<&Vec<Config>> {
         self.configs.get(name)
+    }
+
+    pub fn get_all_configs(&self) -> Vec<Config> {
+        self.configs.values().flatten().cloned().collect()
     }
 }
 

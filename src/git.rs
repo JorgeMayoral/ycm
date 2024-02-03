@@ -114,3 +114,16 @@ pub fn pull_from_remote(dir: &Path) -> Result<()> {
     log_cmd_output("Git Pull", output);
     Ok(())
 }
+
+pub fn clone_repo(url: &str, name: &str, dir: &Path) -> Result<()> {
+    log::info!("Cloning repository: {url}");
+    let output = std::process::Command::new("git")
+        .arg("clone")
+        .arg(url)
+        .arg(name)
+        .arg("--depth=1")
+        .current_dir(dir)
+        .output()?;
+    log_cmd_output("Git Clone", output);
+    Ok(())
+}

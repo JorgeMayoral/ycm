@@ -28,6 +28,10 @@ enum Commands {
     },
     Push,
     Pull,
+    Clone {
+        #[arg(short, long)]
+        url: String,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -52,11 +56,9 @@ fn main() -> Result<()> {
         .filter_level(logger_level)
         .init();
 
-    let config_manager_dir = init_configs_dir()?;
-    let mut db = init_configs_db(&config_manager_dir)?;
-
     match command {
         Commands::Add { name, input } => {
+            let (config_manager_dir, mut db) = initialize()?;
             log::info!("Adding config: {name}");
             let Input { dir, file } = input;
             if let Some(dir) = dir {
@@ -77,6 +79,7 @@ fn main() -> Result<()> {
             }
         }
         Commands::Push => {
+            let (config_manager_dir, _) = initialize()?;
             if !git::is_git_repo(&config_manager_dir)? {
                 git::init_repository(&config_manager_dir)?;
             }
@@ -87,16 +90,40 @@ fn main() -> Result<()> {
             git::push_to_remote(&config_manager_dir)?;
         }
         Commands::Pull => {
+            let (config_manager_dir, _) = initialize()?;
             git::pull_from_remote(&config_manager_dir)?;
+        }
+        Commands::Clone { url } => {
+            let dir = get_base_dir()?;
+            git::clone_repo(&url, CONFIG_MANAGER_FOLDER, &dir)?;
+            let db = ConfigsDB::try_from_path(
+                &dir.join(CONFIG_MANAGER_FOLDER)
+                    .join(configs_db::CONFIGS_DB_NAME),
+            )?;
+            let configs = db.get_all_configs();
+            for config in configs {
+                config.create_link()?;
+            }
         }
     }
 
     Ok(())
 }
 
-fn init_configs_dir() -> Result<ConfigDirPath> {
+fn initialize() -> Result<(PathBuf, ConfigsDB)> {
+    let config_manager_dir = init_configs_dir()?;
+    let db = init_configs_db(&config_manager_dir)?;
+    Ok((config_manager_dir, db))
+}
+
+fn get_base_dir() -> Result<PathBuf> {
     let base_dirs = directories::BaseDirs::new().context("Could not get config directory")?;
     let config_dir = base_dirs.config_dir();
+    Ok(config_dir.to_path_buf())
+}
+
+fn init_configs_dir() -> Result<ConfigDirPath> {
+    let config_dir = get_base_dir()?;
     let config_manager_dir = config_dir.join(CONFIG_MANAGER_FOLDER);
     if config_manager_dir.exists() {
         return Ok(config_manager_dir);
