@@ -1,0 +1,15 @@
+{
+  "components": {
+    "artifacts": {
+      "package_managers": {
+        "preferred": {
+          "cargo": "cargo install ycm"
+        }
+      },
+      "cargo_dist": true
+    }
+  },
+  "build": {
+    "path_prefix": "ycm"
+  }
+}

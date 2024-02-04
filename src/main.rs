@@ -43,7 +43,7 @@ struct Input {
     file: Option<PathBuf>,
 }
 
-const CONFIG_MANAGER_FOLDER: &str = "config-manager";
+const CONFIG_MANAGER_FOLDER: &str = "ycm";
 
 type ConfigDirPath = PathBuf;
 

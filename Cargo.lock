@@ -184,22 +184,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
-name = "config-manager"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "clap",
- "clap-verbosity-flag",
- "directories",
- "eyre",
- "inquire",
- "log",
- "pretty_env_logger",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "core-foundation-sys"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -976,3 +960,19 @@ name = "windows_x86_64_msvc"
 version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dff9641d1cd4be8d1a070daf9e3773c5f67e78b4d9d42263020c057706765c04"
+
+[[package]]
+name = "ycm"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "clap-verbosity-flag",
+ "directories",
+ "eyre",
+ "inquire",
+ "log",
+ "pretty_env_logger",
+ "serde",
+ "serde_json",
+]
