@@ -62,13 +62,7 @@ fn main() -> Result<()> {
             log::info!("Adding config: {name}");
             let Input { dir, file } = input;
             if let Some(dir) = dir {
-                log::info!("Adding configs from directory: {}", dir.display());
-                let entries = std::fs::read_dir(dir)?;
-                for entry in entries {
-                    let entry = entry?;
-                    let file = entry.path();
-                    write_config(&mut db, &name, file, &config_manager_dir)?;
-                }
+                write_dir(&mut db, &name, dir, &config_manager_dir)?;
             }
             if let Some(file) = file {
                 write_config(&mut db, &name, file, &config_manager_dir)?;
@@ -146,6 +140,27 @@ fn init_configs_db(path: &Path) -> Result<ConfigsDB> {
     let db_json = serde_json::to_string_pretty(&db)?;
     std::fs::write(db_path, db_json)?;
     Ok(db)
+}
+
+fn write_dir(
+    db: &mut ConfigsDB,
+    config_name: &str,
+    dir: PathBuf,
+    config_manager_dir: &Path,
+) -> Result<()> {
+    log::info!("Adding configs from directory: {}", dir.display());
+    let entries = std::fs::read_dir(dir)?;
+    for entry in entries {
+        let entry = entry?;
+        if entry.file_type()?.is_dir() {
+            write_dir(db, config_name, entry.path(), config_manager_dir)?;
+            continue;
+        }
+        let file = entry.path();
+        write_config(db, config_name, file, config_manager_dir)?;
+    }
+
+    Ok(())
 }
 
 fn write_config(
