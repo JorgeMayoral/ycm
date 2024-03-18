@@ -15,7 +15,7 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.35"
-clap = { version = "4.5.2", features = ["derive"] }
+clap = { version = "4.5.3", features = ["derive"] }
 clap-verbosity-flag = "2.2.0"
 directories = "5.0.1"
 eyre = "0.6.12"
