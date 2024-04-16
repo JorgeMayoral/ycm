@@ -4,6 +4,10 @@
 
 </div>
 
+> [!WARNING]
+> This project is archived and will no longer receive updates.
+> Since I moved to NixOS I don't have need for this tool.
+
 Personal tool to manage my dotfiles and other configuration files.
 
 ![Continuous integration](https://github.com/JorgeMayoral/ycm/workflows/Continuous%20integration/badge.svg)
